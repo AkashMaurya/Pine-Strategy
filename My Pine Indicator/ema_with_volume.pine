@@ -1,0 +1,94 @@
+//@version=5
+strategy("EMA Crossover Strategy with Volume Confirmation", overlay=true)
+
+// Input parameters
+fastLength = input(9, title="Fast EMA Length")
+slowLength = input(30, title="Slow EMA Length")
+volumeLength = input(20, title="Volume MA Length")
+stopLossPercent = input.float(2.0, title="Stop Loss %", minval=0.1, maxval=10.0, step=0.1)
+takeProfitPercent = input.float(3.0, title="Take Profit %", minval=0.1, maxval=20.0, step=0.1)
+maxTrades = input.int(100, title="Maximum Number of Trades")
+
+// Calculate EMAs and Volume MA
+fastEMA = ta.ema(close, fastLength)
+slowEMA = ta.ema(close, slowLength)
+volumeMA = ta.sma(volume, volumeLength)
+
+// Plot EMAs
+plot(fastEMA, color=color.blue, title="Fast EMA")
+plot(slowEMA, color=color.red, title="Slow EMA")
+
+// Track crossovers
+crossoverUp = ta.crossover(fastEMA, slowEMA)
+crossoverDown = ta.crossunder(fastEMA, slowEMA)
+
+// Variables for tracking touch conditions
+var bool waitingForTouchUp = false
+var bool waitingForTouchDown = false
+
+// Update touch conditions
+if crossoverUp
+    waitingForTouchUp := true
+    waitingForTouchDown := false
+
+if crossoverDown
+    waitingForTouchDown := true
+    waitingForTouchUp := false
+
+// Check for price touching EMAs
+touchUp = waitingForTouchUp and low <= slowEMA
+touchDown = waitingForTouchDown and high >= slowEMA
+
+// Volume condition
+volumeCondition = volume > volumeMA
+
+// Trade count tracking
+var int tradeCount = 0
+
+// Entry conditions
+longCondition = touchUp and volumeCondition and tradeCount < maxTrades
+shortCondition = touchDown and volumeCondition and tradeCount < maxTrades
+
+// Calculate stop loss and take profit levels
+stopLossLong = strategy.position_avg_price * (1 - stopLossPercent/100)
+stopLossShort = strategy.position_avg_price * (1 + stopLossPercent/100)
+takeProfitLong = strategy.position_avg_price * (1 + takeProfitPercent/100)
+takeProfitShort = strategy.position_avg_price * (1 - takeProfitPercent/100)
+
+// Execute trades
+if longCondition
+    strategy.entry("Long", strategy.long)
+    tradeCount := tradeCount + 1
+    waitingForTouchUp := false
+
+if shortCondition
+    strategy.entry("Short", strategy.short)
+    tradeCount := tradeCount + 1
+    waitingForTouchDown := false
+
+// Exit trades based on stop loss and take profit
+if strategy.position_size > 0
+    strategy.exit("Long Exit", "Long", stop=stopLossLong, limit=takeProfitLong)
+
+if strategy.position_size < 0
+    strategy.exit("Short Exit", "Short", stop=stopLossShort, limit=takeProfitShort)
+
+// Plot trade signals
+plotshape(longCondition, title="Buy Signal", location=location.belowbar, color=color.green, style=shape.triangleup, size=size.small)
+plotshape(shortCondition, title="Sell Signal", location=location.abovebar, color=color.red, style=shape.triangledown, size=size.small)
+
+// Display strategy metrics
+var float totalProfitLoss = 0.0
+totalProfitLoss := totalProfitLoss + strategy.grossprofit - strategy.grossloss
+
+// Calculate and display profitability percentage
+profitabilityPercentage = (strategy.grossprofit / (strategy.grossprofit + strategy.grossloss)) * 100
+
+// Plot strategy information
+if barstate.islastconfirmedhistory
+    label.new(bar_index, high, 
+              text="Total Trades: " + str.tostring(tradeCount) + "\n" +
+                   "Profitability: " + str.tostring(profitabilityPercentage, "#.##") + "%\n" +
+                   "Net Profit: $" + str.tostring(totalProfitLoss, "#.##"),
+              style=label.style_label_lower_left,
+              color=color.blue)
