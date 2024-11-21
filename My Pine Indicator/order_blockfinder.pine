@@ -24,8 +24,8 @@
 study("Order Block Finder", overlay = true)               
 
 colors    = input(title = "Color Scheme", defval="DARK", options=["DARK", "BRIGHT"])
-periods   = input(5,     "Relevant Periods to identify OB")                // Required number of subsequent candles in the same direction to identify Order Block
-threshold = input(0.0,   "Min. Percent move to identify OB", step = 0.1)   // Required minimum % move (from potential OB close to last subsequent candle to identify Order Block)
+periods   = input.int(5,     "Relevant Periods to identify OB")                // Required number of subsequent candles in the same direction to identify Order Block
+threshold = input.float(0.0, "Min. Percent move to identify OB", minval=0.0, maxval=100.0, step=0.1)
 usewicks  = input(false, "Use whole range [High/Low] for OB marking?" )    // Display High/Low range for each OB instead of Open/Low for Bullish / Open/High for Bearish
 showbull  = input(true,  "Show latest Bullish Channel?")                   // Show Channel for latest Bullish OB?
 showbear  = input(true,  "Show latest Bearish Channel?")                   // Show Channel for latest Bearish OB?
